@@ -1,0 +1,965 @@
+--[[
+    ╔═══════════════════════════════════════════════════════════╗
+    ║   MVS HUB v1.0 — Murderers VS Sheriffs                    ║
+    ║   Compatible con: Delta Executor                          ║
+    ║   Create by: Papi1239030                                  ║
+    ║   Botón flotante: tonixGH                                 ║
+    ╚═══════════════════════════════════════════════════════════╝
+]]
+
+-- =============================================
+-- SERVICIOS
+-- =============================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- =============================================
+-- CONFIGURACIÓN DE IDIOMAS
+-- =============================================
+local Lang = {
+    ["Español"] = {
+        hub = "MVS HUB",
+        sheriff = "SHERIFF",
+        assassin = "ASESINO",
+        esp = "ESP",
+        config = "CONFIGURACIÓN",
+        autoShoot = "Disparo Automático",
+        autoShootDesc = "Dispara solo al asesino visible en pantalla",
+        killAll = "Muerte Mundial",
+        killAllDesc = "Mata a todos en el servidor",
+        autoKnife = "Cuchillo Automático",
+        autoKnifeDesc = "Lanza el cuchillo solo a los jugadores",
+        see = "Ver a Todos",
+        seeDesc = "Asesino = Rojo | Sheriff = Azul",
+        color = "Color del Panel",
+        language = "Idioma",
+        ideas = "Enviar Ideas",
+        ideasPh = "Escribe tu idea aquí...",
+        send = "Enviar",
+        back = "Volver",
+        credits = "Create by: Papi1239030",
+        onlySheriff = "Solo funciona si eres Sheriff",
+        onlyAssassin = "Solo funciona si eres Asesino",
+        youAreSheriff = "✅ Eres Sheriff",
+        youAreAssassin = "✅ Eres Asesino",
+    },
+    ["English"] = {
+        hub = "MVS HUB",
+        sheriff = "SHERIFF",
+        assassin = "ASSASSIN",
+        esp = "ESP",
+        config = "SETTINGS",
+        autoShoot = "Auto Shoot",
+        autoShootDesc = "Shoots only visible assassin",
+        killAll = "Kill All",
+        killAllDesc = "Kills everyone in server",
+        autoKnife = "Auto Knife",
+        autoKnifeDesc = "Throws knife automatically",
+        see = "See Everyone",
+        seeDesc = "Assassin = Red | Sheriff = Blue",
+        color = "Panel Color",
+        language = "Language",
+        ideas = "Send Ideas",
+        ideasPh = "Type your idea here...",
+        send = "Send",
+        back = "Back",
+        credits = "Create by: Papi1239030",
+        onlySheriff = "Only works if you are Sheriff",
+        onlyAssassin = "Only works if you are Assassin",
+        youAreSheriff = "✅ You are Sheriff",
+        youAreAssassin = "✅ You are Assassin",
+    },
+    ["Português"] = {
+        hub = "MVS HUB",
+        sheriff = "XERIFE",
+        assassin = "ASSASSINO",
+        esp = "ESP",
+        config = "CONFIGURAÇÕES",
+        autoShoot = "Tiro Automático",
+        autoShootDesc = "Atira apenas no assassino visível",
+        killAll = "Matar Todos",
+        killAllDesc = "Mata todos no servidor",
+        autoKnife = "Faca Automática",
+        autoKnifeDesc = "Lança faca automaticamente",
+        see = "Ver Todos",
+        seeDesc = "Assassino = Vermelho | Xerife = Azul",
+        color = "Cor do Painel",
+        language = "Idioma",
+        ideas = "Enviar Ideias",
+        ideasPh = "Escreva sua ideia aqui...",
+        send = "Enviar",
+        back = "Voltar",
+        credits = "Criado por: Papi1239030",
+        onlySheriff = "Só funciona se você for Xerife",
+        onlyAssassin = "Só funciona se você for Assassino",
+        youAreSheriff = "✅ Você é Xerife",
+        youAreAssassin = "✅ Você é Assassino",
+    }
+}
+
+local currentLang = "Español"
+local function T(key)
+    return Lang[currentLang][key] or key
+end
+
+-- =============================================
+-- CONFIGURACIÓN DE OPCIONES
+-- =============================================
+local Settings = {
+    ESP = false,
+    AutoShoot = false,
+    KillAll = false,
+    AutoKnife = false,
+    PanelColor = Color3.fromRGB(20, 20, 30),
+}
+
+-- =============================================
+-- DETECCIÓN DE ROL
+-- =============================================
+local function getRole(player)
+    local character = player.Character
+    if not character then return "Civil" end
+    
+    -- Buscar etiqueta de rol
+    local roleTag = character:FindFirstChild("Role") 
+        or character:FindFirstChild("role") 
+        or character:FindFirstChild("Team")
+    if roleTag then
+        return tostring(roleTag.Value or roleTag.Name)
+    end
+    
+    -- Buscar por TeamColor
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid and humanoid.TeamColor then
+        local colorName = humanoid.TeamColor.Name:lower()
+        if colorName:find("red") or colorName:find("assassin") or colorName:find("criminal") then
+            return "Asesino"
+        elseif colorName:find("blue") or colorName:find("sheriff") or colorName:find("police") then
+            return "Sheriff"
+        end
+    end
+    return "Civil"
+end
+
+local function isAssassin(player)
+    local role = getRole(player)
+    return role == "Asesino" 
+        or role:lower():find("assassin") ~= nil
+        or role:lower():find("red") ~= nil
+end
+
+local function isSheriff(player)
+    local role = getRole(player)
+    return role == "Sheriff" 
+        or role:lower():find("sheriff") ~= nil
+        or role:lower():find("blue") ~= nil
+end
+
+-- =============================================
+-- CREAR GUI
+-- =============================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MVS_HUB"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- =============================================
+-- BOTÓN FLOTANTE "tonixGH"
+-- =============================================
+local FloatButton = Instance.new("TextButton")
+FloatButton.Size = UDim2.new(0, 90, 0, 40)
+FloatButton.Position = UDim2.new(0.9, -100, 0.85, -20)
+FloatButton.BackgroundColor3 = Color3.fromRGB(190, 20, 20)
+FloatButton.Text = "tonixGH"
+FloatButton.TextColor3 = Color3.new(1, 1, 1)
+FloatButton.TextSize = 14
+FloatButton.Font = Enum.Font.GothamBold
+FloatButton.Parent = ScreenGui
+
+local FB_Corner = Instance.new("UICorner")
+FB_Corner.CornerRadius = UDim.new(0, 10)
+FB_Corner.Parent = FloatButton
+
+local FB_Stroke = Instance.new("UIStroke")
+FB_Stroke.Color = Color3.fromRGB(255, 90, 90)
+FB_Stroke.Thickness = 2
+FB_Stroke.Parent = FloatButton
+
+-- Efecto rojo pulsante
+local FB_Glow = Instance.new("Frame")
+FB_Glow.Size = UDim2.new(1, 0, 1, 0)
+FB_Glow.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+FB_Glow.BackgroundTransparency = 0.6
+FB_Glow.Parent = FloatButton
+
+local FB_GlowCorner = Instance.new("UICorner")
+FB_GlowCorner.CornerRadius = UDim.new(0, 10)
+FB_GlowCorner.Parent = FB_Glow
+
+-- Animación de pulso
+task.spawn(function()
+    while task.wait(0.7) do
+        TweenService:Create(FB_Glow, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Size = UDim2.new(1.25, 0, 1.45, 0),
+            BackgroundTransparency = 0.85
+        }):Play()
+        task.wait(0.7)
+        TweenService:Create(FB_Glow, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 0.6
+        }):Play()
+    end
+end)
+
+-- Arrastrar botón flotante
+local dragFloat = false
+local dragFloatOffset = Vector2.new()
+FloatButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragFloat = true
+        dragFloatOffset = input.Position - FloatButton.AbsolutePosition
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragFloat = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragFloat and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        FloatButton.Position = UDim2.fromOffset(input.Position.X - dragFloatOffset.X, input.Position.Y - dragFloatOffset.Y)
+    end
+end)
+
+-- =============================================
+-- PANEL PRINCIPAL
+-- =============================================
+local Panel = Instance.new("Frame")
+Panel.Size = UDim2.new(0, 340, 0, 500)
+Panel.Position = UDim2.new(0.5, -170, 0.5, -250)
+Panel.BackgroundColor3 = Settings.PanelColor
+Panel.BackgroundTransparency = 0.05
+Panel.BorderSizePixel = 0
+Panel.Visible = false
+Panel.Active = true
+Panel.Parent = ScreenGui
+
+local Panel_Corner = Instance.new("UICorner")
+Panel_Corner.CornerRadius = UDim.new(0, 14)
+Panel_Corner.Parent = Panel
+
+local Panel_Stroke = Instance.new("UIStroke")
+Panel_Stroke.Color = Color3.fromRGB(255, 50, 50)
+Panel_Stroke.Thickness = 2
+Panel_Stroke.Parent = Panel
+
+-- Barra de título
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 45)
+TitleBar.BackgroundColor3 = Color3.fromRGB(40, 10, 10)
+TitleBar.BackgroundTransparency = 0.2
+TitleBar.Parent = Panel
+
+local TitleBar_Corner = Instance.new("UICorner")
+TitleBar_Corner.CornerRadius = UDim.new(0, 14)
+TitleBar_Corner.Parent = TitleBar
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -50, 1, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = T("hub")
+TitleLabel.TextColor3 = Color3.new(1, 1, 1)
+TitleLabel.TextSize = 20
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Parent = TitleBar
+
+-- Botón cerrar
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0.5, -15)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.new(1, 1, 1)
+CloseBtn.TextSize = 16
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = TitleBar
+
+local CloseBtn_Corner = Instance.new("UICorner")
+CloseBtn_Corner.CornerRadius = UDim.new(0, 8)
+CloseBtn_Corner.Parent = CloseBtn
+
+CloseBtn.MouseButton1Click:Connect(function()
+    Panel.Visible = false
+    FloatButton.Visible = true
+end)
+
+-- Arrastrar panel
+local dragPanel = false
+local dragPanelOffset = Vector2.new()
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragPanel = true
+        dragPanelOffset = input.Position - Panel.AbsolutePosition
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragPanel and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        Panel.Position = UDim2.fromOffset(input.Position.X - dragPanelOffset.X, input.Position.Y - dragPanelOffset.Y)
+    end
+end)
+
+-- Abrir panel con botón flotante
+FloatButton.MouseButton1Click:Connect(function()
+    Panel.Visible = true
+    FloatButton.Visible = false
+end)
+
+-- =============================================
+-- MENÚ PRINCIPAL
+-- =============================================
+local MainMenu = Instance.new("Frame")
+MainMenu.Size = UDim2.new(1, -20, 1, -55)
+MainMenu.Position = UDim2.new(0, 10, 0, 50)
+MainMenu.BackgroundTransparency = 1
+MainMenu.Parent = Panel
+
+local MainLayout = Instance.new("UIListLayout")
+MainLayout.Padding = UDim.new(0, 10)
+MainLayout.SortOrder = Enum.SortOrder.LayoutOrder
+MainLayout.Parent = MainMenu
+
+local function createMainButton(text, color, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 50)
+    btn.BackgroundColor3 = color
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.TextSize = 18
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = MainMenu
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = btn
+
+    btn.MouseButton1Click:Connect(callback)
+end
+
+createMainButton("👮 " .. T("sheriff"), Color3.fromRGB(20, 60, 160), function() showSheriffMenu() end)
+createMainButton("🗡️ " .. T("assassin"), Color3.fromRGB(160, 20, 20), function() showAssassinMenu() end)
+createMainButton("👁️ " .. T("esp"), Color3.fromRGB(30, 120, 60), function() showESPMenu() end)
+createMainButton("⚙️ " .. T("config"), Color3.fromRGB(80, 80, 100), function() showConfigMenu() end)
+
+-- Créditos
+local Credits = Instance.new("Frame")
+Credits.Size = UDim2.new(1, 0, 0, 60)
+Credits.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
+Credits.BackgroundTransparency = 0.3
+Credits.Parent = MainMenu
+
+local Credits_Corner = Instance.new("UICorner")
+Credits_Corner.CornerRadius = UDim.new(0, 10)
+Credits_Corner.Parent = Credits
+
+-- Avatar
+local AvatarImage = Instance.new("ImageLabel")
+AvatarImage.Size = UDim2.new(0, 40, 0, 40)
+AvatarImage.Position = UDim2.new(0.5, -20, 0, 5)
+AvatarImage.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+AvatarImage.BackgroundTransparency = 0.5
+AvatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420"
+AvatarImage.Parent = Credits
+
+local Avatar_Corner = Instance.new("UICorner")
+Avatar_Corner.CornerRadius = UDim.new(1, 0)
+Avatar_Corner.Parent = AvatarImage
+
+task.spawn(function()
+    pcall(function()
+        local success, userId = pcall(function()
+            return Players:GetUserIdFromNameAsync("Papi1239030")
+        end)
+        if success then
+            AvatarImage.Image = "rbxthumb://type=AvatarHeadShot&id=" .. userId .. "&w=420&h=420"
+        end
+    end)
+end)
+
+local CreditsLabel = Instance.new("TextLabel")
+CreditsLabel.Size = UDim2.new(1, 0, 0, 20)
+CreditsLabel.Position = UDim2.new(0, 0, 0, 45)
+CreditsLabel.BackgroundTransparency = 1
+CreditsLabel.Text = T("credits")
+CreditsLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+CreditsLabel.TextSize = 14
+CreditsLabel.Font = Enum.Font.GothamBold
+CreditsLabel.Parent = Credits
+
+-- =============================================
+-- SISTEMA DE SUBMENÚS
+-- =============================================
+local currentMenu = nil
+
+local function hideAllMenus()
+    MainMenu.Visible = false
+    if currentMenu then
+        currentMenu.Visible = false
+    end
+end
+
+local function createSubMenu()
+    local menu = Instance.new("Frame")
+    menu.Size = UDim2.new(1, -20, 1, -55)
+    menu.Position = UDim2.new(0, 10, 0, 50)
+    menu.BackgroundTransparency = 1
+    menu.Visible = false
+    menu.Parent = Panel
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 8)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = menu
+
+    local backBtn = Instance.new("TextButton")
+    backBtn.Size = UDim2.new(1, 0, 0, 35)
+    backBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    backBtn.Text = "← " .. T("back")
+    backBtn.TextColor3 = Color3.new(1, 1, 1)
+    backBtn.TextSize = 14
+    backBtn.Font = Enum.Font.GothamBold
+    backBtn.Parent = menu
+
+    local backCorner = Instance.new("UICorner")
+    backCorner.CornerRadius = UDim.new(0, 8)
+    backCorner.Parent = backBtn
+
+    backBtn.MouseButton1Click:Connect(function()
+        menu.Visible = false
+        MainMenu.Visible = true
+    end)
+
+    return menu
+end
+
+local function createToggle(text, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 42)
+    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    frame.BackgroundTransparency = 0.2
+    frame.Parent = currentMenu
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextSize = 14
+    label.Font = Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, 10)
+    padding.Parent = label
+
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(0, 40, 0, 24)
+    toggleBtn.Position = UDim2.new(1, -50, 0.5, -12)
+    toggleBtn.BackgroundColor3 = default and Color3.fromRGB(50, 200, 100) or Color3.fromRGB(80, 80, 90)
+    toggleBtn.Text = default and "ON" or "OFF"
+    toggleBtn.TextColor3 = Color3.new(1, 1, 1)
+    toggleBtn.TextSize = 11
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.Parent = frame
+
+    local tcorner = Instance.new("UICorner")
+    tcorner.CornerRadius = UDim.new(0, 6)
+    tcorner.Parent = toggleBtn
+
+    local state = default
+    toggleBtn.MouseButton1Click:Connect(function()
+        state = not state
+        toggleBtn.BackgroundColor3 = state and Color3.fromRGB(50, 200, 100) or Color3.fromRGB(80, 80, 90)
+        toggleBtn.Text = state and "ON" or "OFF"
+        callback(state)
+    end)
+end
+
+local function createDesc(text)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 30)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(180, 180, 200)
+    label.TextSize = 12
+    label.Font = Enum.Font.Gotham
+    label.TextWrapped = true
+    label.Parent = currentMenu
+end
+
+-- =============================================
+-- MENÚ SHERIFF
+-- =============================================
+local sheriffMenu = createSubMenu()
+
+local function showSheriffMenu()
+    for _, child in pairs(sheriffMenu:GetChildren()) do
+        if child ~= sheriffMenu:FindFirstChild("BackBtn") then
+            child:Destroy()
+        end
+    end
+
+    currentMenu = sheriffMenu
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 35)
+    title.BackgroundTransparency = 1
+    title.Text = "👮 " .. T("sheriff")
+    title.TextColor3 = Color3.fromRGB(80, 150, 255)
+    title.TextSize = 20
+    title.Font = Enum.Font.GothamBold
+    title.Parent = sheriffMenu
+
+    createToggle(T("autoShoot"), Settings.AutoShoot, function(v)
+        Settings.AutoShoot = v
+    end)
+    createDesc(T("autoShootDesc"))
+
+    local roleCheck = Instance.new("TextLabel")
+    roleCheck.Size = UDim2.new(1, 0, 0, 30)
+    roleCheck.BackgroundTransparency = 1
+    roleCheck.Text = "🎯 " .. (isSheriff(LocalPlayer) and T("youAreSheriff") or T("onlySheriff"))
+    roleCheck.TextColor3 = isSheriff(LocalPlayer) and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 200, 0)
+    roleCheck.TextSize = 13
+    roleCheck.Font = Enum.Font.GothamBold
+    roleCheck.Parent = sheriffMenu
+
+    hideAllMenus()
+    sheriffMenu.Visible = true
+end
+
+-- =============================================
+-- MENÚ ASESINO
+-- =============================================
+local assassinMenu = createSubMenu()
+
+local function showAssassinMenu()
+    for _, child in pairs(assassinMenu:GetChildren()) do
+        if child ~= assassinMenu:FindFirstChild("BackBtn") then
+            child:Destroy()
+        end
+    end
+
+    currentMenu = assassinMenu
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 35)
+    title.BackgroundTransparency = 1
+    title.Text = "🗡️ " .. T("assassin")
+    title.TextColor3 = Color3.fromRGB(255, 80, 80)
+    title.TextSize = 20
+    title.Font = Enum.Font.GothamBold
+    title.Parent = assassinMenu
+
+    createToggle(T("killAll"), Settings.KillAll, function(v)
+        Settings.KillAll = v
+    end)
+    createDesc(T("killAllDesc"))
+
+    createToggle(T("autoKnife"), Settings.AutoKnife, function(v)
+        Settings.AutoKnife = v
+    end)
+    createDesc(T("autoKnifeDesc"))
+
+    local roleCheck = Instance.new("TextLabel")
+    roleCheck.Size = UDim2.new(1, 0, 0, 30)
+    roleCheck.BackgroundTransparency = 1
+    roleCheck.Text = "🗡️ " .. (isAssassin(LocalPlayer) and T("youAreAssassin") or T("onlyAssassin"))
+    roleCheck.TextColor3 = isAssassin(LocalPlayer) and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 200, 0)
+    roleCheck.TextSize = 13
+    roleCheck.Font = Enum.Font.GothamBold
+    roleCheck.Parent = assassinMenu
+
+    hideAllMenus()
+    assassinMenu.Visible = true
+end
+
+-- =============================================
+-- MENÚ ESP
+-- =============================================
+local espMenu = createSubMenu()
+
+local function showESPMenu()
+    for _, child in pairs(espMenu:GetChildren()) do
+        if child ~= espMenu:FindFirstChild("BackBtn") then
+            child:Destroy()
+        end
+    end
+
+    currentMenu = espMenu
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 35)
+    title.BackgroundTransparency = 1
+    title.Text = "👁️ " .. T("esp")
+    title.TextColor3 = Color3.fromRGB(80, 255, 150)
+    title.TextSize = 20
+    title.Font = Enum.Font.GothamBold
+    title.Parent = espMenu
+
+    createToggle(T("see"), Settings.ESP, function(v)
+        Settings.ESP = v
+    end)
+    createDesc(T("seeDesc"))
+
+    hideAllMenus()
+    espMenu.Visible = true
+end
+
+-- =============================================
+-- MENÚ CONFIGURACIÓN
+-- =============================================
+local configMenu = createSubMenu()
+
+local function showConfigMenu()
+    for _, child in pairs(configMenu:GetChildren()) do
+        if child ~= configMenu:FindFirstChild("BackBtn") then
+            child:Destroy()
+        end
+    end
+
+    currentMenu = configMenu
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 35)
+    title.BackgroundTransparency = 1
+    title.Text = "⚙️ " .. T("config")
+    title.TextColor3 = Color3.fromRGB(200, 200, 255)
+    title.TextSize = 20
+    title.Font = Enum.Font.GothamBold
+    title.Parent = configMenu
+
+    -- COLOR
+    local colorLabel = Instance.new("TextLabel")
+    colorLabel.Size = UDim2.new(1, 0, 0, 25)
+    colorLabel.BackgroundTransparency = 1
+    colorLabel.Text = "🎨 " .. T("color")
+    colorLabel.TextColor3 = Color3.new(1, 1, 1)
+    colorLabel.TextSize = 15
+    colorLabel.Font = Enum.Font.GothamBold
+    colorLabel.Parent = configMenu
+
+    local colors = {
+        {"Rojo", Color3.fromRGB(40, 10, 10)},
+        {"Azul", Color3.fromRGB(10, 10, 40)},
+        {"Verde", Color3.fromRGB(10, 40, 10)},
+        {"Morado", Color3.fromRGB(30, 10, 40)},
+        {"Naranja", Color3.fromRGB(40, 25, 10)},
+        {"Rosa", Color3.fromRGB(40, 10, 30)},
+    }
+
+    local colorRow = Instance.new("Frame")
+    colorRow.Size = UDim2.new(1, 0, 0, 40)
+    colorRow.BackgroundTransparency = 1
+    colorRow.Parent = configMenu
+
+    local colorLayout = Instance.new("UIListLayout")
+    colorLayout.FillDirection = Enum.FillDirection.Horizontal
+    colorLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    colorLayout.Padding = UDim.new(0, 6)
+    colorLayout.Parent = colorRow
+
+    for _, colorData in pairs(colors) do
+        local colorBtn = Instance.new("TextButton")
+        colorBtn.Size = UDim2.new(0, 44, 0, 36)
+        colorBtn.BackgroundColor3 = colorData[2]
+        colorBtn.Text = ""
+        colorBtn.Parent = colorRow
+
+        local cCorner = Instance.new("UICorner")
+        cCorner.CornerRadius = UDim.new(0, 8)
+        cCorner.Parent = colorBtn
+
+        colorBtn.MouseButton1Click:Connect(function()
+            Settings.PanelColor = colorData[2]
+            Panel.BackgroundColor3 = Settings.PanelColor
+        end)
+    end
+
+    -- IDIOMA
+    local langLabel = Instance.new("TextLabel")
+    langLabel.Size = UDim2.new(1, 0, 0, 25)
+    langLabel.BackgroundTransparency = 1
+    langLabel.Text = "🌍 " .. T("language")
+    langLabel.TextColor3 = Color3.new(1, 1, 1)
+    langLabel.TextSize = 15
+    langLabel.Font = Enum.Font.GothamBold
+    langLabel.Parent = configMenu
+
+    local languages = {"Español", "English", "Português"}
+    local langRow = Instance.new("Frame")
+    langRow.Size = UDim2.new(1, 0, 0, 40)
+    langRow.BackgroundTransparency = 1
+    langRow.Parent = configMenu
+
+    local langLayout = Instance.new("UIListLayout")
+    langLayout.FillDirection = Enum.FillDirection.Horizontal
+    langLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    langLayout.Padding = UDim.new(0, 6)
+    langLayout.Parent = langRow
+
+    for _, lang in pairs(languages) do
+        local langBtn = Instance.new("TextButton")
+        langBtn.Size = UDim2.new(0, 90, 0, 36)
+        langBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+        langBtn.Text = lang
+        langBtn.TextColor3 = Color3.new(1, 1, 1)
+        langBtn.TextSize = 13
+        langBtn.Font = Enum.Font.GothamBold
+        langBtn.Parent = langRow
+
+        local lCorner = Instance.new("UICorner")
+        lCorner.CornerRadius = UDim.new(0, 8)
+        lCorner.Parent = langBtn
+
+        langBtn.MouseButton1Click:Connect(function()
+            currentLang = lang
+            TitleLabel.Text = T("hub")
+            CreditsLabel.Text = T("credits")
+            showConfigMenu()
+        end)
+    end
+
+    -- IDEAS
+    local ideasLabel = Instance.new("TextLabel")
+    ideasLabel.Size = UDim2.new(1, 0, 0, 25)
+    ideasLabel.BackgroundTransparency = 1
+    ideasLabel.Text = "💡 " .. T("ideas")
+    ideasLabel.TextColor3 = Color3.new(1, 1, 1)
+    ideasLabel.TextSize = 15
+    ideasLabel.Font = Enum.Font.GothamBold
+    ideasLabel.Parent = configMenu
+
+    local ideaBox = Instance.new("TextBox")
+    ideaBox.Size = UDim2.new(1, 0, 0, 45)
+    ideaBox.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+    ideaBox.PlaceholderText = T("ideasPh")
+    ideaBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 140)
+    ideaBox.Text = ""
+    ideaBox.TextColor3 = Color3.new(1, 1, 1)
+    ideaBox.TextSize = 13
+    ideaBox.Font = Enum.Font.Gotham
+    ideaBox.TextWrapped = true
+    ideaBox.ClearTextOnFocus = false
+    ideaBox.Parent = configMenu
+
+    local boxCorner = Instance.new("UICorner")
+    boxCorner.CornerRadius = UDim.new(0, 8)
+    boxCorner.Parent = ideaBox
+
+    local sendBtn = Instance.new("TextButton")
+    sendBtn.Size = UDim2.new(1, 0, 0, 36)
+    sendBtn.BackgroundColor3 = Color3.fromRGB(60, 150, 255)
+    sendBtn.Text = T("send")
+    sendBtn.TextColor3 = Color3.new(1, 1, 1)
+    sendBtn.TextSize = 14
+    sendBtn.Font = Enum.Font.GothamBold
+    sendBtn.Parent = configMenu
+
+    local sendCorner = Instance.new("UICorner")
+    sendCorner.CornerRadius = UDim.new(0, 8)
+    sendCorner.Parent = sendBtn
+
+    sendBtn.MouseButton1Click:Connect(function()
+        local idea = ideaBox.Text
+        if idea ~= "" then
+            print("💡 IDEA de Papi1239030:", idea)
+            ideaBox.Text = ""
+        end
+    end)
+
+    hideAllMenus()
+    configMenu.Visible = true
+end
+
+-- =============================================
+-- FUNCIONES DEL JUEGO
+-- =============================================
+
+-- ESP
+local espObjects = {}
+local function createESP(player)
+    if not player or player == LocalPlayer then return end
+    local esp = Drawing.new("Text")
+    esp.Size = 14
+    esp.Center = true
+    esp.Outline = true
+    esp.OutlineColor = Color3.new(0, 0, 0)
+    esp.Visible = false
+    espObjects[player] = esp
+end
+
+local function updateESP()
+    for player, esp in pairs(espObjects) do
+        if Settings.ESP and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = player.Character.HumanoidRootPart
+            local screenPos, onScreen = Camera:WorldToScreenPoint(rootPart.Position)
+            if onScreen then
+                esp.Position = Vector2.new(screenPos.X, screenPos.Y - 100)
+                if isAssassin(player) then
+                    esp.Color = Color3.new(1, 0, 0)
+                    esp.Text = player.Name .. " [ASSASSIN]"
+                elseif isSheriff(player) then
+                    esp.Color = Color3.new(0, 0, 1)
+                    esp.Text = player.Name .. " [SHERIFF]"
+                else
+                    esp.Color = Color3.new(1, 1, 1)
+                    esp.Text = player.Name
+                end
+                esp.Visible = true
+            else
+                esp.Visible = false
+            end
+        else
+            esp.Visible = false
+        end
+    end
+end
+
+-- DISPARO AUTOMÁTICO (Sheriff)
+local function findVisibleAssassin()
+    local cameraPos = Camera.CFrame.Position
+    local cameraDirection = Camera.CFrame.LookVector
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if isAssassin(player) then
+                local rootPart = player.Character.HumanoidRootPart
+                local screenPos, onScreen = Camera:WorldToScreenPoint(rootPart.Position)
+                if onScreen then
+                    local distance = (rootPart.Position - cameraPos).Magnitude
+                    if distance < 200 then
+                        return player, rootPart
+                    end
+                end
+            end
+        end
+    end
+    return nil, nil
+end
+
+local function autoShoot()
+    if not Settings.AutoShoot then return end
+    if not isSheriff(LocalPlayer) then return end
+    
+    local target, rootPart = findVisibleAssassin()
+    if target and rootPart then
+        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, rootPart.Position)
+        
+        local character = LocalPlayer.Character
+        if character then
+            for _, tool in pairs(character:GetChildren()) do
+                if tool:IsA("Tool") then
+                    tool:Activate()
+                end
+            end
+        end
+    end
+end
+
+-- KILL ALL (Asesino)
+local function killAll()
+    if not Settings.KillAll then return end
+    if not isAssassin(LocalPlayer) then return end
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
+            local humanoid = player.Character.Humanoid
+            humanoid.Health = 0
+        end
+    end
+end
+
+-- CUCHILLO AUTOMÁTICO (Asesino)
+local function autoKnife()
+    if not Settings.AutoKnife then return end
+    if not isAssassin(LocalPlayer) then return end
+    
+    local character = LocalPlayer.Character
+    if character then
+        local knife = character:FindFirstChild("Knife") or character:FindFirstChild("knife")
+        
+        local closest = nil
+        local closestDist = 100
+        
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local dist = (player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closest = player
+                    end
+                end
+            end
+        end
+        
+        if closest and closest.Character then
+            local hrp = character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.CFrame = CFrame.lookAt(hrp.Position, closest.Character.HumanoidRootPart.Position)
+                
+                if knife then
+                    knife:Activate()
+                end
+            end
+        end
+    end
+end
+
+-- =============================================
+-- CONEXIONES PRINCIPALES
+-- =============================================
+
+for _, player in pairs(Players:GetPlayers()) do
+    createESP(player)
+end
+
+Players.PlayerAdded:Connect(function(player)
+    createESP(player)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if espObjects[player] then
+        espObjects[player]:Remove()
+        espObjects[player] = nil
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    updateESP()
+    autoShoot()
+    autoKnife()
+end)
+
+task.spawn(function()
+    while task.wait(1) do
+        killAll()
+    end
+end)
+
+print("✅ MVS HUB v1.0 cargado — Create by: Papi1239030")
